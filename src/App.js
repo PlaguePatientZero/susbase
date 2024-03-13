@@ -1,4 +1,12 @@
-import { HashRouter as Router } from 'react-router-dom';
+import { debounce } from 'lodash';
+
+import '@rainbow-me/rainbowkit/styles.css';
+import { ConnectButton} from '@rainbow-me/rainbowkit';
+import { getDefaultConfig, RainbowKitProvider} from '@rainbow-me/rainbowkit';
+import { WagmiProvider } from 'wagmi';
+import { base} from 'wagmi/chains';
+import { QueryClientProvider,QueryClient} from "@tanstack/react-query";
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Web3 from 'web3';
 import './App.css';
@@ -17,9 +25,17 @@ const requestOptions = {
   },
 };
 
+//CONNECT
+const config = getDefaultConfig({
+  appName: 'susbase',
+  projectId: 'susbase1',
+  chains: [base],
+  ssr: true, // If your dApp uses server side rendering (SSR)
+});
 
-function App() {
-  const [isConnected, setIsConnected] = useState(false);
+const queryClient = new QueryClient();
+
+const App = () => {
   const [susBalance, setSusBalance] = useState(null);
   const [lockedAmount, setLockedAmount] = useState(0);
   const [lockingTime, setLockingTime] = useState(null);
@@ -30,28 +46,12 @@ function App() {
   const [TLVprice, setTLVprice] = useState(null);
   const [mintedPrice, setMintedPrice] = useState(null);
 
+  
   const handleStakeClick = () => {
     // Redirect to the Balancer website
     window.location.href = 'https://app.balancer.fi/#/base/pool/0x65e8e75899f683c8e2e73c77d6c5c63075f296cd00020000000000000000002b';
   };
-  
 
-  const connectWallet = async () => {
-    const { ethereum } = window;
-  
-    if (typeof ethereum !== 'undefined' && ethereum.isMetaMask) {
-      try {
-        await ethereum.request({ method: 'eth_requestAccounts' });
-        await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] });
-  
-        setIsConnected(true);
-      } catch (error) {
-        console.error('Error connecting to MetaMask or switching chain:', error);
-      }
-    } else {
-      console.log("MetaMask is not installed");
-    }
-  };
 
   const fetchSusTokenPrice = useCallback(async () => {
     try {
@@ -67,6 +67,7 @@ function App() {
     }
   }, [setSusTokenPrice]);
 
+
   const fetchContract = useCallback(async () => {
     const abiResponse = await fetch(`https://api.basescan.org/api?module=contract&action=getabi&address=${CONTRACT_ADDRESS}&apikey=${API_KEY}`);
     const abiData = await abiResponse.json();
@@ -75,33 +76,34 @@ function App() {
     return new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
   }, []);
 
-
-  const getSusBalance = useCallback(async () => {
-    const { ethereum } = window;
-  
-    if (isConnected && typeof ethereum !== 'undefined' && ethereum.isMetaMask) {
-      try {
-        const [account] = await ethereum.request({ method: 'eth_accounts' });
-  
-        const susContract = await fetchContract();
-        const userBalance = await susContract.methods.balanceOf(account).call();
-  
-        const userBalanceInTokens = Web3.utils.fromWei(userBalance, 'ether');
-        setSusBalance(userBalanceInTokens);
-      } catch (error) {
-        console.error('Error fetching SUS balance:', error);
+  // DENOUNCE
+  const getSusBalance = useCallback(debounce(async () => {
+      const { ethereum } = window;
+    
+      if (typeof ethereum !== 'undefined' && ethereum.isMetaMask) {
+        try {
+          const [account] = await ethereum.request({ method: 'eth_accounts' });
+    
+          const susContract = await fetchContract();
+          const userBalance = await susContract.methods.balanceOf(account).call();
+    
+          const userBalanceInTokens = Web3.utils.fromWei(userBalance, 'ether');
+          setSusBalance(userBalanceInTokens);
+        } catch (error) {
+          console.error('Error fetching SUS balance:', error);
+        }
       }
-    }
-  }, [isConnected, fetchContract]);
-
+    }, 1000), [fetchContract]);
+    
+    
 
   const checkLockingTime = useCallback(async () => {
     const { ethereum } = window;
   
-    if (isConnected && typeof ethereum !== 'undefined' && ethereum.isMetaMask) {
+    if (typeof ethereum !== 'undefined' && ethereum.isMetaMask) {
       try {
         const [account] = await ethereum.request({ method: 'eth_accounts' });
-  
+        
         const susContract = await fetchContract();
         const lockingDetails = await susContract.methods.getLockedDetails(account).call();
   
@@ -134,24 +136,27 @@ function App() {
         console.error('Error checking locking time:', error);
       }
     }
-  }, [isConnected, susBalance, susTokenPrice, lockedAmount, tokensMinted, getSusBalance, fetchContract, fetchSusTokenPrice]);
+  }, [susBalance, susTokenPrice, lockedAmount, tokensMinted, getSusBalance, fetchContract, fetchSusTokenPrice]);
   
+  //DENOUNCE 
   useEffect(() => {
     const fetchDataAndUpdateInterval = async () => {
       try {
         await getSusBalance();
         await fetchSusTokenPrice();
+        await checkLockingTime(); // Call checkLockingTime here
       } catch (error) {
         console.error('Error fetching data:', error);
       }
     };
-
+  
     fetchDataAndUpdateInterval();
-
+  
     const intervalId = setInterval(fetchDataAndUpdateInterval, 60000);
-
+  
     return () => clearInterval(intervalId);
-  }, [isConnected, getSusBalance, fetchSusTokenPrice]);
+  }, [getSusBalance, fetchSusTokenPrice, checkLockingTime]);
+  
 
   useEffect(() => {
     const updateCalculations = async () => {
@@ -185,7 +190,7 @@ function App() {
     };
 
     fetchData();
-  }, [isConnected, fetchSusTokenPrice, getSusBalance, checkLockingTime]);
+  }, [fetchSusTokenPrice, getSusBalance, checkLockingTime]);
 
   useEffect(() => {
     // Create a meta element for viewport
@@ -204,7 +209,9 @@ function App() {
 
 
   return (
-   <Router>
+    <WagmiProvider config={config}>
+    <QueryClientProvider client={queryClient}>
+    <RainbowKitProvider>
     <div className="App">
       <header className="App-header">
         <div className="header-left">
@@ -220,9 +227,7 @@ function App() {
         </div>
         <div className="header-right">
             <img src="base.png" alt="Logobase" className="second-logo" />
-          <button onClick={connectWallet} disabled={isConnected} className="connect-button">
-            {isConnected ? `Connected: ${window.ethereum.selectedAddress.slice(0, 7)}...` : 'Connect Wallet'}
-          </button>
+            <ConnectButton />
         </div>
         <div className="balance">
           <div className="balance-info">
@@ -305,7 +310,9 @@ function App() {
         </div>
       </div>
     </div>
-  </Router> 
+    </RainbowKitProvider>
+    </QueryClientProvider>
+    </WagmiProvider> 
   );
 }
 

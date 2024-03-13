@@ -8,11 +8,13 @@
   }
   
   .balance-info .balance-price {
-    font-size: 0.6rem; /* Adjusted font size for balance price inside balance info */
+    font-size: 0.5rem; /* Adjusted font size for balance price inside balance info */
   }
 
   .balance-info {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
+    margin-top: 200px;
+    right: 200px;
   }
 
   button {
@@ -34,27 +36,36 @@
   }
 
   .header-left {
-    width: 100px;
+    width: 80px;
     font-size: 0.4rem;  
+    margin-bottom: 50px;
     
   }
    
   .header-middle {
     width: 80px ;
     font-size: 0.8rem;  
+    margin-bottom: 50px;
+    margin-right: 100px;
   }
 
   .header-right {
+    margin-top: 80px;
     font-size: 0.6rem;
-    width: 100px;
+    width: auto; /* Allow the container to adjust its width based on content */
+    position: absolute; /* Change the position to absolute */
+    right: 20px; /* Adjust the right position */
   }
 
-  .table-container {
-    font-size: 0.35rem;
-    margin-top: 200px;
-    padding-right: 20px;
-    width: 80%;
 
+
+  .table-container {
+    font-size: 0.45rem;
+    margin-top: 200px;
+    padding-right: 30px;
+    padding-left: 10px;
+    width: 80%;
+    padding-top: 10px;
     align-items: center;
   }
 
@@ -78,7 +89,7 @@
   }
 
   .slogan {
-    margin-top: 70px;
+    margin-top: 120px;
     font-size: 1rem;
     
   }
